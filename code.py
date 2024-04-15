@@ -4,6 +4,7 @@ import usb_midi
 import adafruit_midi
 import simpleio
 import digitalio
+from adafruit_debouncer import Debouncer
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
@@ -19,9 +20,11 @@ midi = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
 )
 # swtich setup
-switch1 = digitalio.DigitalInOut(switch_pin)
-switch1.direction = digitalio.Direction.INPUT
-switch1.pull = digitalio.Pull.UP
+pin1 = digitalio.DigitalInOut(switch_pin)
+pin1.direction = digitalio.Direction.INPUT
+pin1.pull = digitalio.Pull.UP
+switch1 = Debouncer(pin1)
+
 
 
 async def monitorExpressionPedal(midi_out, mod_pot):
@@ -51,7 +54,8 @@ async def monitorSwitch(midi_out, cc_channel, switch):
     pressed = False
     while True:
         await asyncio.sleep(0.025)
-        if not switch.value:
+        switch.update()
+        if switch.fell:
             pressed = not pressed
             # create CC message
             print(f'pedal status: {"on" if pressed else "off"}')
