@@ -1,50 +1,61 @@
-# SPDX-FileCopyrightText: 2022 Liz Clark for Adafruit Industries
-# SPDX-License-Identifier: MIT
-
-import time
+import asyncio
 import board
 import usb_midi
 import adafruit_midi
 import simpleio
+import digitalio
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
+# board wiring info
+potentiometer_pin = board.A0
+switch_pin = board.GP13
+
 # change in modulation value necessary to trigger midi change
-SENSITIVITY = 2
+EXP_SENSITIVITY = 2
 
 #  midi setup
 midi = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
 )
+# swtich setup
+switch1 = digitalio.DigitalInOut(switch_pin)
+switch1.direction = digitalio.Direction.INPUT
+switch1.pull = digitalio.Pull.UP
 
-#  potentiometer setup
-mod_pot = AnalogIn(board.A0)
 
-#  function to read analog input
-def val(pin):
-    return pin.value
+async def monitorExpressionPedal(midi_out, mod_pot):
+    # last read value
+    last_value = 0
+    while True:
+        # Prints out the min/max values from potentiometer to the serial monitor and plotter
+        # print((mod_pot.value,))
+        await asyncio.sleep(0.025)
 
-#  variables for last read value
-#  defaults to 0
-mod_val2 = 0
+        #  map range of potentiometer input to midi values - update the min/max values below
+        current_value = round(simpleio.map_range(mod_pot.value, 400, 65535, 0, 127))
 
-while True:
+        #  if modulation value is updated...
+        if abs(current_value - last_value) >= EXP_SENSITIVITY:
+            #  update mod_val2
+            last_value = current_value
+            #  create integer
+            modulation = int(last_value)
+            #  create CC message
+            modWheel = ControlChange(11, modulation)
+            #  send CC message
+            print(modWheel)
+            midi_out.send(modWheel)
+            
+async def monitorSwitch(midi_out, switch):
+    while True:
+        await asyncio.sleep(0.05)
+        if not switch.value:
+            print("pressed")
 
-    #  Print out the min/max values from potentiometer to the serial monitor and plotter
-    #print((mod_pot.value,))
-    time.sleep(0.025)
-
-    #  map range of potentiometer input to midi values - update the min/max values below
-    mod_val1 = round(simpleio.map_range(val(mod_pot), 400, 65535, 0, 127))
-
-    #  if modulation value is updated...
-    if abs(mod_val1 - mod_val2) >= 2:
-        #  update mod_val2
-        mod_val2 = mod_val1
-        #  create integer
-        modulation = int(mod_val2)
-        #  create CC message
-        modWheel = ControlChange(1, modulation)
-        #  send CC message
-        print(modWheel)
-        midi.send(modWheel)
+async def main():
+    exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(potentiometer_pin)))
+    switch_task = asyncio.create_task(monitorSwitch(midi, switch1))
+    await asyncio.gather(exp_task, switch_task)
+    
+asyncio.run(main())
