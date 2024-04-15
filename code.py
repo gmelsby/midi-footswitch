@@ -47,15 +47,19 @@ async def monitorExpressionPedal(midi_out, mod_pot):
             print(modWheel)
             midi_out.send(modWheel)
             
-async def monitorSwitch(midi_out, switch):
+async def monitorSwitch(midi_out, cc_channel, switch):
+    pressed = False
     while True:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.025)
         if not switch.value:
-            print("pressed")
+            pressed = not pressed
+            # create CC message
+            print(f'pedal status: {"on" if pressed else "off"}')
+            midi_out.send(ControlChange(cc_channel, int(pressed) * 127))
 
 async def main():
     exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(potentiometer_pin)))
-    switch_task = asyncio.create_task(monitorSwitch(midi, switch1))
+    switch_task = asyncio.create_task(monitorSwitch(midi, 80, switch1))
     await asyncio.gather(exp_task, switch_task)
     
 asyncio.run(main())
