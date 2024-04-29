@@ -59,8 +59,9 @@ class FootSwitch:
         if self.switch.fell:
             self.pressed = not self.pressed
             # create CC message
-            print(f'pedal status: {"on" if self.pressed else "off"}')
-            self.midi_out.send(ControlChange(self.cc_channel, int(self.pressed) * 127))
+            cc_message = ControlChange(self.cc_channel, int(self.pressed) * 127)
+            print(f'{cc_message} pedal status: {"on" if self.pressed else "off"}')
+            self.midi_out.send(cc_message)
             
     async def momentary_poll(self):
         """
@@ -69,12 +70,14 @@ class FootSwitch:
         """
         self.switch.update()
         if self.switch.fell:
-            print(f'pedal status: {"pressed"}')
-            self.midi_out.send(ControlChange(self.cc_channel, 127))
+            cc_message = ControlChange(self.cc_channel, 127)
+            print(f'{cc_message} pedal status: {"pressed"}')
+            self.midi_out.send(cc_message)
             
         if self.switch.rose:
-            print(f'pedal status: {"rose"}')
-            self.midi_out.send(ControlChange(self.cc_channel, 0))
+            cc_message = ControlChange(self.cc_channel, 0)
+            print(f'{cc_message} pedal status: {"rose"}')
+            self.midi_out.send(cc_message)
             
 
 class ModeChangeFootSwitch(FootSwitch):
