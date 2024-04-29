@@ -33,13 +33,13 @@ async def monitorExpressionPedal(midi_out, mod_pot):
     while True:
         # Prints out the min/max values from potentiometer to the serial monitor and plotter
         # print((mod_pot.value,))
-        await asyncio.sleep(0.025)
+        await asyncio.sleep(0.0025)
 
         #  map range of potentiometer input to midi values - update the min/max values below
         current_value = round(simpleio.map_range(mod_pot.value, 400, 65535, 0, 127))
 
-        #  if modulation value is updated...
-        if abs(current_value - last_value) >= EXP_SENSITIVITY:
+        # if change in value is larger than sensitivity or value is at the ends of the range
+        if abs(current_value - last_value) >= EXP_SENSITIVITY or (current_value != last_value and current_value in [0, 127]):
             #  update mod_val2
             last_value = current_value
             #  create integer
@@ -49,11 +49,11 @@ async def monitorExpressionPedal(midi_out, mod_pot):
             #  send CC message
             print(modWheel)
             midi_out.send(modWheel)
-            
+
 async def monitorSwitch(midi_out, cc_channel, switch):
     pressed = False
     while True:
-        await asyncio.sleep(0.025)
+        await asyncio.sleep(0.0025)
         switch.update()
         if switch.fell:
             pressed = not pressed
@@ -65,5 +65,5 @@ async def main():
     exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(potentiometer_pin)))
     switch_task = asyncio.create_task(monitorSwitch(midi, 80, switch1))
     await asyncio.gather(exp_task, switch_task)
-    
+
 asyncio.run(main())
