@@ -8,13 +8,13 @@ from adafruit_debouncer import Debouncer
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
-# change in modulation value necessary to trigger midi change
-EXP_SENSITIVITY = 2
 
-# board wiring info
-POTENTIONMETER_PIN = board.A0
-SWITCH_PIN = board.GP13
-FLIPSWITCH_PIN = board.GP15
+# list of expression pedals, list of elements of form (potentiometer_pin, cc_channel, sensitivity)
+EXPRESSION_PEDALS = [(board.A0, 11, 2)]
+# list of on/off switches, list of elements of form (switch_pin, cc_channel)
+SWITCHES = [(board.GP10, 81), (board.GP11, 82), (board.GP12, 83)]
+# list of switches able to change their mode, list of elements of form (switch_pin, flipswitch_pin, cc_channel)
+MODE_SWITCHES = [(board.GP13, board.GP15, 80)] 
 
 
 class FootSwitch:
@@ -85,7 +85,7 @@ class ModeChangeFootSwitch(FootSwitch):
     FootSwitch that can be changed from momentary to toggle with a flip of another switch
     """
     
-    def __init__(self, pin, flip_pin, midi_out, cc_channel, update_rate, flip_update_rate=0.025, momentary=False):
+    def __init__(self, pin, flip_pin, midi_out, cc_channel, update_rate=0, flip_update_rate=0.025, momentary=False):
         super().__init__(pin, midi_out, cc_channel, update_rate, momentary)
         self.flip_pin = digitalio.DigitalInOut(flip_pin)
         self.flip_pin.direction = digitalio.Direction.INPUT
@@ -140,7 +140,7 @@ class ExpressionPedal:
             current_value = round(simpleio.map_range(self.mod_pot.value, self.pot_min, self.pot_max, 0, 127))
 
             # if change in value is larger than sensitivity or value is at the ends of the range
-            if abs(current_value - self.last_value) >= EXP_SENSITIVITY or (current_value != self.last_value and current_value in (0, 127)):
+            if abs(current_value - self.last_value) >= self.sensitivity or (current_value != self.last_value and current_value in (0, 127)):
                 self.last_value = current_value
                 # create CC message
                 modWheel = ControlChange(self.cc_channel, current_value)
@@ -155,12 +155,19 @@ async def main():
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
     )
     
-    exp_pedal = ExpressionPedal(POTENTIONMETER_PIN, midi, sensitivity=EXP_SENSITIVITY)
-    exp_task = asyncio.create_task(exp_pedal.monitor())
+    tasks = []
+    for pedal in EXPRESSION_PEDALS:
+        exp_pedal = ExpressionPedal(pedal[0], midi, cc_channel=pedal[1], sensitivity=pedal[2])
+        tasks.append(asyncio.create_task(exp_pedal.monitor()))
     
-    foot_switch = ModeChangeFootSwitch(SWITCH_PIN, FLIPSWITCH_PIN, midi, 80, 0, momentary=True)
-    switch_task = asyncio.create_task(foot_switch.monitor())
+    for switch in SWITCHES:
+        foot_switch = FootSwitch(switch[0], midi, switch[1])
+        tasks.append(asyncio.create_task(foot_switch.monitor()))
     
-    await asyncio.gather(exp_task, switch_task)
+    for mode_switch in MODE_SWITCHES:
+        foot_switch = ModeChangeFootSwitch(mode_switch[0], mode_switch[1], midi, mode_switch[2])
+        tasks.append(asyncio.create_task(foot_switch.monitor()))
+        
+    await asyncio.gather(*tasks)
 
 asyncio.run(main())
