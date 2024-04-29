@@ -8,23 +8,46 @@ from adafruit_debouncer import Debouncer
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
-# board wiring info
-potentiometer_pin = board.A0
-switch_pin = board.GP13
-
 # change in modulation value necessary to trigger midi change
 EXP_SENSITIVITY = 2
 
-#  midi setup
-midi = adafruit_midi.MIDI(
-    midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
-)
-# switch setup
-pin1 = digitalio.DigitalInOut(switch_pin)
-pin1.direction = digitalio.Direction.INPUT
-pin1.pull = digitalio.Pull.UP
-switch1 = Debouncer(pin1)
+# board wiring info
+POTENTIONMETER_PIN = board.A0
+SWITCH_PIN = board.GP13
 
+
+class FootSwitch:
+    """
+    Encapsulation for foot switches
+    Keeps track of foot switch state and mode
+    """
+
+    def __init__(self, pin, midi_out, cc_channel, update_rate):
+        # switch setup
+        pin_in = digitalio.DigitalInOut(pin)
+        pin_in.direction = digitalio.Direction.INPUT
+        pin_in.pull = digitalio.Pull.UP
+        self.switch = Debouncer(pin_in)
+        
+        self.pressed = False
+        self.midi_out = midi_out
+        self.cc_channel = cc_channel
+        self.update_rate = update_rate
+        
+    async def monitor(self):
+        """
+        Loops while monitoring switch state
+        Sends changes to midi_out on cc_channel
+        """
+        while True:
+            await asyncio.sleep(self.update_rate)
+            self.switch.update()
+            if self.switch.fell:
+                self.pressed = not self.pressed
+                # create CC message
+                print(f'pedal status: {"on" if self.pressed else "off"}')
+                self.midi_out.send(ControlChange(self.cc_channel, int(self.pressed) * 127))
+        
 
 
 async def monitorExpressionPedal(midi_out, mod_pot):
@@ -50,20 +73,18 @@ async def monitorExpressionPedal(midi_out, mod_pot):
             print(modWheel)
             midi_out.send(modWheel)
 
-async def monitorSwitch(midi_out, cc_channel, switch):
-    pressed = False
-    while True:
-        await asyncio.sleep(0.0025)
-        switch.update()
-        if switch.fell:
-            pressed = not pressed
-            # create CC message
-            print(f'pedal status: {"on" if pressed else "off"}')
-            midi_out.send(ControlChange(cc_channel, int(pressed) * 127))
 
 async def main():
-    exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(potentiometer_pin)))
-    switch_task = asyncio.create_task(monitorSwitch(midi, 80, switch1))
+    #  midi setup
+    midi = adafruit_midi.MIDI(
+        midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
+    )
+    
+    exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(POTENTIONMETER_PIN)))
+    
+    foot_switch = FootSwitch(SWITCH_PIN, midi, 80, 0)
+    switch_task = asyncio.create_task(foot_switch.monitor())
+    
     await asyncio.gather(exp_task, switch_task)
 
 asyncio.run(main())
