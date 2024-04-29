@@ -23,7 +23,7 @@ class FootSwitch:
     Keeps track of foot switch state and mode
     """
 
-    def __init__(self, pin, midi_out, cc_channel, update_rate, momentary=False):
+    def __init__(self, pin, midi_out, cc_channel, update_rate=0, momentary=False):
         # switch setup
         pin_in = digitalio.DigitalInOut(pin)
         pin_in.direction = digitalio.Direction.INPUT
@@ -108,32 +108,42 @@ class ModeChangeFootSwitch(FootSwitch):
             if self.flip_pin.value != self.momentary:
                 print(f'switch flipped: {"momentary" if self.flip_pin.value else "toggle"}')
                 self.momentary = self.flip_pin.value
-            
-        
+                
+    
+class ExpressionPedal:
+    """
+    Encapsulation for expression pedal
+    """
+    
+    def __init__(self, potentiometer_pin, midi_out, cc_channel=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
+        self.mod_pot = AnalogIn(potentiometer_pin)
+        self.midi_out = midi_out
+        self.cc_channel = cc_channel
+        self.last_value = 0
+        self.update_rate = update_rate
+        self.sensitivity = sensitivity
+        self.pot_min = pot_min
+        self.pot_max = pot_max
 
+    async def monitor(self):
+        """
+        Polls the poteniometer at the rate specified by update_rate
+        Sends MIDI CC messages if change exceeds sensitivty
+        """
+        while True:
+            await asyncio.sleep(self.update_rate)
 
-async def monitorExpressionPedal(midi_out, mod_pot):
-    # last read value
-    last_value = 0
-    while True:
-        # Prints out the min/max values from potentiometer to the serial monitor and plotter
-        # print((mod_pot.value,))
-        await asyncio.sleep(0.0025)
+            # maps range of potentiometer input to midi values
+            current_value = round(simpleio.map_range(self.mod_pot.value, self.pot_min, self.pot_max, 0, 127))
 
-        #  map range of potentiometer input to midi values - update the min/max values below
-        current_value = round(simpleio.map_range(mod_pot.value, 400, 65535, 0, 127))
-
-        # if change in value is larger than sensitivity or value is at the ends of the range
-        if abs(current_value - last_value) >= EXP_SENSITIVITY or (current_value != last_value and current_value in [0, 127]):
-            #  update mod_val2
-            last_value = current_value
-            #  create integer
-            modulation = int(last_value)
-            #  create CC message
-            modWheel = ControlChange(11, modulation)
-            #  send CC message
-            print(modWheel)
-            midi_out.send(modWheel)
+            # if change in value is larger than sensitivity or value is at the ends of the range
+            if abs(current_value - self.last_value) >= EXP_SENSITIVITY or (current_value != self.last_value and current_value in (0, 127)):
+                self.last_value = current_value
+                # create CC message
+                modWheel = ControlChange(self.cc_channel, current_value)
+                # send CC message
+                print(modWheel)
+                self.midi_out.send(modWheel)
 
 
 async def main():
@@ -142,7 +152,8 @@ async def main():
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
     )
     
-    exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(POTENTIONMETER_PIN)))
+    exp_pedal = ExpressionPedal(POTENTIONMETER_PIN, midi, sensitivity=EXP_SENSITIVITY)
+    exp_task = asyncio.create_task(exp_pedal.monitor())
     
     foot_switch = ModeChangeFootSwitch(SWITCH_PIN, FLIPSWITCH_PIN, midi, 80, 0, momentary=True)
     switch_task = asyncio.create_task(foot_switch.monitor())
