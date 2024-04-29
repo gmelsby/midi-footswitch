@@ -14,6 +14,7 @@ EXP_SENSITIVITY = 2
 # board wiring info
 POTENTIONMETER_PIN = board.A0
 SWITCH_PIN = board.GP13
+FLIPSWITCH_PIN = board.GP15
 
 
 class FootSwitch:
@@ -74,6 +75,41 @@ class FootSwitch:
         if self.switch.rose:
             print(f'pedal status: {"rose"}')
             self.midi_out.send(ControlChange(self.cc_channel, 0))
+            
+
+class ModeChangeFootSwitch(FootSwitch):
+    """
+    FootSwitch that can be changed from momentary to toggle with a flip of another switch
+    """
+    
+    def __init__(self, pin, flip_pin, midi_out, cc_channel, update_rate, flip_update_rate=0.025, momentary=False):
+        super().__init__(pin, midi_out, cc_channel, update_rate, momentary)
+        self.flip_pin = digitalio.DigitalInOut(flip_pin)
+        self.flip_pin.direction = digitalio.Direction.INPUT
+        self.flip_pin.pull = digitalio.Pull.UP
+        self.flip_update_rate = flip_update_rate
+        
+    async def monitor(self):
+        """
+        Overrides parent method, includes monitoring of flip switch
+        """
+        footswitch_monitor_task = super().monitor()
+        flipswitch_monitor_task = self.monitorFlipSwitch()
+        
+        await asyncio.gather(footswitch_monitor_task, flipswitch_monitor_task)
+        
+    async def monitorFlipSwitch(self):
+        """
+        Polls the flippable switch for changes
+        If a change is detected, changes the mode of the footswitch
+        """
+        while True:
+            await asyncio.sleep(self.flip_update_rate)
+            if self.flip_pin.value != self.momentary:
+                print(f'switch flipped: {"momentary" if self.flip_pin.value else "toggle"}')
+                self.momentary = self.flip_pin.value
+            
+        
 
 
 async def monitorExpressionPedal(midi_out, mod_pot):
@@ -108,7 +144,7 @@ async def main():
     
     exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(POTENTIONMETER_PIN)))
     
-    foot_switch = FootSwitch(SWITCH_PIN, midi, 80, 0, True)
+    foot_switch = ModeChangeFootSwitch(SWITCH_PIN, FLIPSWITCH_PIN, midi, 80, 0, momentary=True)
     switch_task = asyncio.create_task(foot_switch.monitor())
     
     await asyncio.gather(exp_task, switch_task)
