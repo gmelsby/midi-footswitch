@@ -45,6 +45,8 @@ class FootSwitch:
             await asyncio.sleep(self.update_rate)
             if not self.momentary:
                 await self.toggle_poll()
+            else:
+                await self.momentary_poll()
        
        
     async def toggle_poll(self):
@@ -58,6 +60,20 @@ class FootSwitch:
             # create CC message
             print(f'pedal status: {"on" if self.pressed else "off"}')
             self.midi_out.send(ControlChange(self.cc_channel, int(self.pressed) * 127))
+            
+    async def momentary_poll(self):
+        """
+        Behavior for momentary-type footswitch
+        When the switch is pressed sends 127, when released sends 0
+        """
+        self.switch.update()
+        if self.switch.fell:
+            print(f'pedal status: {"pressed"}')
+            self.midi_out.send(ControlChange(self.cc_channel, 127))
+            
+        if self.switch.rose:
+            print(f'pedal status: {"rose"}')
+            self.midi_out.send(ControlChange(self.cc_channel, 0))
 
 
 async def monitorExpressionPedal(midi_out, mod_pot):
@@ -92,7 +108,7 @@ async def main():
     
     exp_task = asyncio.create_task(monitorExpressionPedal(midi, AnalogIn(POTENTIONMETER_PIN)))
     
-    foot_switch = FootSwitch(SWITCH_PIN, midi, 80, 0)
+    foot_switch = FootSwitch(SWITCH_PIN, midi, 80, 0, True)
     switch_task = asyncio.create_task(foot_switch.monitor())
     
     await asyncio.gather(exp_task, switch_task)
