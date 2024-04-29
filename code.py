@@ -22,7 +22,7 @@ class FootSwitch:
     Keeps track of foot switch state and mode
     """
 
-    def __init__(self, pin, midi_out, cc_channel, update_rate):
+    def __init__(self, pin, midi_out, cc_channel, update_rate, momentary=False):
         # switch setup
         pin_in = digitalio.DigitalInOut(pin)
         pin_in.direction = digitalio.Direction.INPUT
@@ -33,7 +33,9 @@ class FootSwitch:
         self.midi_out = midi_out
         self.cc_channel = cc_channel
         self.update_rate = update_rate
-        
+        self.momentary = momentary
+      
+      
     async def monitor(self):
         """
         Loops while monitoring switch state
@@ -41,13 +43,21 @@ class FootSwitch:
         """
         while True:
             await asyncio.sleep(self.update_rate)
-            self.switch.update()
-            if self.switch.fell:
-                self.pressed = not self.pressed
-                # create CC message
-                print(f'pedal status: {"on" if self.pressed else "off"}')
-                self.midi_out.send(ControlChange(self.cc_channel, int(self.pressed) * 127))
-        
+            if not self.momentary:
+                await self.toggle_poll()
+       
+       
+    async def toggle_poll(self):
+        """
+        Behavior for toggle-type footswitch
+        Pressing the switch toggles the footswitch state between on and off
+        """
+        self.switch.update()
+        if self.switch.fell:
+            self.pressed = not self.pressed
+            # create CC message
+            print(f'pedal status: {"on" if self.pressed else "off"}')
+            self.midi_out.send(ControlChange(self.cc_channel, int(self.pressed) * 127))
 
 
 async def monitorExpressionPedal(midi_out, mod_pot):
