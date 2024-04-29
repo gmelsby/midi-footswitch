@@ -19,7 +19,7 @@ EXP_SENSITIVITY = 2
 midi = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
 )
-# swtich setup
+# switch setup
 pin1 = digitalio.DigitalInOut(switch_pin)
 pin1.direction = digitalio.Direction.INPUT
 pin1.pull = digitalio.Pull.UP
