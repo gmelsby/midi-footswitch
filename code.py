@@ -9,6 +9,7 @@ from adafruit_debouncer import Debouncer
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
+# enables specifying pins from a json string
 PIN_DICT = {
     'GP0': board.GP0,
     'GP1': board.GP1,
@@ -43,13 +44,6 @@ PIN_DICT = {
     'A1': board.A1,
     'A2': board.A2
 }
-
-
-
-# list of on/off switches, list of elements of form (switch_pin, cc_channel)
-SWITCHES = [(board.GP11, 81), (board.GP12, 82), (board.GP13, 83)]
-# list of switches able to change their mode, list of elements of form (switch_pin, flipswitch_pin, cc_channel)
-MODE_SWITCHES = [(board.GP10, board.GP15, 80)]
 
 
 class FootSwitch:
@@ -194,24 +188,24 @@ async def main():
     )
 
     tasks = []
-    # add specified pedals to tasks
-    if 'pedals' in config.keys():
-        for pedal in config['pedals']:
-            pedal['pin']= PIN_DICT[pedal['pin']]
+    # add specified expression pedals to tasks
+    if 'expression_pedals' in config:
+        for pedal in config['expression_pedals']:
+            pedal['pin'] = PIN_DICT[pedal['pin']]
             exp_pedal = ExpressionPedal(midi, **pedal)
             tasks.append(asyncio.create_task(exp_pedal.monitor()))
 
     # add specified switches to tasks
-    for switch in SWITCHES:
-        foot_switch = FootSwitch(midi, switch[0], switch[1])
-        tasks.append(asyncio.create_task(foot_switch.monitor()))
-
-
-    for mode_switch in MODE_SWITCHES:
-        foot_switch = ModeChangeFootSwitch(midi, mode_switch[0], mode_switch[1],  mode_switch[2])
-        tasks.append(asyncio.create_task(foot_switch.monitor()))
-
-
+    if 'switches' in config:
+        for switch in config ['switches']:
+            switch['pin'] = PIN_DICT[switch['pin']]
+            # default to standard foot switch, change to mode switch if flip_pin specified
+            switch_class = FootSwitch 
+            if 'flip_pin' in switch:
+                switch['flip_pin'] = PIN_DICT[switch['flip_pin']]
+                switch_class = ModeChangeFootSwitch
+            foot_switch = switch_class(midi, **switch)
+            tasks.append(asyncio.create_task(foot_switch.monitor()))
 
     await asyncio.gather(*tasks)
 
