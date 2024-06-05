@@ -59,6 +59,7 @@ class FootSwitch:
         pin_in.pull = digitalio.Pull.UP
         self.switch = Debouncer(pin_in)
 
+        self.pin = pin
         self.pressed = False
         self.midi_out = midi_out
         self.cc_parameter = cc_parameter
@@ -108,6 +109,19 @@ class FootSwitch:
             print(f'{cc_message} pedal status: {"rose"}')
             self.midi_out.send(cc_message)
 
+    def __str__(self):
+        """
+        Represents the Foot Switch as a string
+        """
+        return '\n\t'.join([
+            f'{self.__class__.__name__}:',
+            f'pin: {self.pin}',
+            f'cc_parameter: {self.cc_parameter}',
+            f'update_rate: {self.update_rate}',
+            f'momentary: {self.momentary}'])
+
+
+
 
 class ModeChangeFootSwitch(FootSwitch):
     """
@@ -116,6 +130,7 @@ class ModeChangeFootSwitch(FootSwitch):
 
     def __init__(self, midi_out, pin, flip_pin, cc_parameter, update_rate=0, flip_update_rate=0.025, momentary=False):
         super().__init__(midi_out, pin, cc_parameter, update_rate, momentary)
+        self.flip_pin_board_info = flip_pin
         self.flip_pin = digitalio.DigitalInOut(flip_pin)
         self.flip_pin.direction = digitalio.Direction.INPUT
         self.flip_pin.pull = digitalio.Pull.UP
@@ -140,6 +155,17 @@ class ModeChangeFootSwitch(FootSwitch):
             if self.flip_pin.value != self.momentary:
                 print(f'switch flipped: {"momentary" if self.flip_pin.value else "toggle"}')
                 self.momentary = self.flip_pin.value
+
+    def __str__(self):
+        """
+        Represents the Foot Switch as a string, overrides super method
+        """
+        return '\n\t'.join([
+            super().__str__(),
+            f'flip_pin: {self.flip_pin_board_info}',
+            f'flip_update_rate: {self.flip_update_rate}'])
+
+
 
 
 class ExpressionPedal:
@@ -195,7 +221,7 @@ async def main():
     config_file = open('config.json', mode='r')
     config = json.load(config_file)
 
-    #  midi setup
+    # midi setup
     # use 'midi_out_channel' from config.json, if exists, else default to 1
     midi = adafruit_midi.MIDI(
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], 
