@@ -183,9 +183,12 @@ async def main():
     config = json.load(config_file)
 
     #  midi setup
+    # use 'midi_out_channel' from config.json, if exists, else default to 1
     midi = adafruit_midi.MIDI(
-        midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
+        midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], 
+        out_channel=config['midi_out_channel'] if 'midi_out_channel' in config else 1 
     )
+    print(f"MIDI channel: {midi.out_channel}")
 
     tasks = []
     # add specified expression pedals to tasks

@@ -1,4 +1,6 @@
 {
+  "midi_out_channel": 2,
+
   "expression_pedals": [
     {
       "pin": "A0",
