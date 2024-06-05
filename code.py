@@ -1,4 +1,5 @@
 import asyncio
+import json
 import board
 import usb_midi
 import adafruit_midi
@@ -8,9 +9,43 @@ from adafruit_debouncer import Debouncer
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
+PIN_DICT = {
+    'GP0': board.GP0,
+    'GP1': board.GP1,
+    'GP2': board.GP2,
+    'GP3': board.GP3,
+    'GP4': board.GP4,
+    'GP5': board.GP5,
+    'GP6': board.GP6,
+    'GP7': board.GP7,
+    'GP8': board.GP8,
+    'GP9': board.GP9,
+    'GP10': board.GP10,
+    'GP11': board.GP11,
+    'GP12': board.GP12,
+    'GP13': board.GP13,
+    'GP14': board.GP14,
+    'GP15': board.GP15,
+    'GP16': board.GP16,
+    'GP17': board.GP17,
+    'GP18': board.GP18,
+    'GP19': board.GP19,
+    'GP20': board.GP20,
+    'GP21': board.GP21,
+    'GP22': board.GP22,
+    'GP23': board.GP23,
+    'GP24': board.GP24,
+    'GP25': board.GP25,
+    'GP26': board.GP26,
+    'GP27': board.GP27,
+    'GP28': board.GP28,
+    'A0': board.A0,
+    'A1': board.A1,
+    'A2': board.A2
+}
 
-# list of expression pedals, list of elements of form (potentiometer_pin, cc_channel, sensitivity)
-EXPRESSION_PEDALS = [(board.A0, 11, 2)]
+
+
 # list of on/off switches, list of elements of form (switch_pin, cc_channel)
 SWITCHES = [(board.GP11, 81), (board.GP12, 82), (board.GP13, 83)]
 # list of switches able to change their mode, list of elements of form (switch_pin, flipswitch_pin, cc_channel)
@@ -23,7 +58,7 @@ class FootSwitch:
     Keeps track of foot switch state and mode
     """
 
-    def __init__(self, pin, midi_out, cc_channel, update_rate=0, momentary=False):
+    def __init__(self, midi_out, pin, cc_channel, update_rate=0, momentary=False):
         # switch setup
         pin_in = digitalio.DigitalInOut(pin)
         pin_in.direction = digitalio.Direction.INPUT
@@ -85,8 +120,8 @@ class ModeChangeFootSwitch(FootSwitch):
     FootSwitch that can be changed from momentary to toggle with a flip of another switch
     """
 
-    def __init__(self, pin, flip_pin, midi_out, cc_channel, update_rate=0, flip_update_rate=0.025, momentary=False):
-        super().__init__(pin, midi_out, cc_channel, update_rate, momentary)
+    def __init__(self, midi_out, pin, flip_pin, cc_channel, update_rate=0, flip_update_rate=0.025, momentary=False):
+        super().__init__(midi_out, pin, cc_channel, update_rate, momentary)
         self.flip_pin = digitalio.DigitalInOut(flip_pin)
         self.flip_pin.direction = digitalio.Direction.INPUT
         self.flip_pin.pull = digitalio.Pull.UP
@@ -118,8 +153,8 @@ class ExpressionPedal:
     Encapsulation for expression pedal
     """
 
-    def __init__(self, potentiometer_pin, midi_out, cc_channel=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
-        self.mod_pot = AnalogIn(potentiometer_pin)
+    def __init__(self, midi_out, pin, cc_channel=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
+        self.mod_pot = AnalogIn(pin)
         self.midi_out = midi_out
         self.cc_channel = cc_channel
         self.last_value = 0
@@ -150,23 +185,33 @@ class ExpressionPedal:
 
 
 async def main():
+    config_file = open('config.json', mode='r')
+    config = json.load(config_file)
+
     #  midi setup
     midi = adafruit_midi.MIDI(
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
     )
 
     tasks = []
-    for pedal in EXPRESSION_PEDALS:
-        exp_pedal = ExpressionPedal(pedal[0], midi, cc_channel=pedal[1], sensitivity=pedal[2])
-        tasks.append(asyncio.create_task(exp_pedal.monitor()))
+    # add specified pedals to tasks
+    if 'pedals' in config.keys():
+        for pedal in config['pedals']:
+            pedal['pin']= PIN_DICT[pedal['pin']]
+            exp_pedal = ExpressionPedal(midi, **pedal)
+            tasks.append(asyncio.create_task(exp_pedal.monitor()))
 
+    # add specified switches to tasks
     for switch in SWITCHES:
-        foot_switch = FootSwitch(switch[0], midi, switch[1])
+        foot_switch = FootSwitch(midi, switch[0], switch[1])
         tasks.append(asyncio.create_task(foot_switch.monitor()))
+
 
     for mode_switch in MODE_SWITCHES:
-        foot_switch = ModeChangeFootSwitch(mode_switch[0], mode_switch[1], midi, mode_switch[2])
+        foot_switch = ModeChangeFootSwitch(midi, mode_switch[0], mode_switch[1],  mode_switch[2])
         tasks.append(asyncio.create_task(foot_switch.monitor()))
+
+
 
     await asyncio.gather(*tasks)
 

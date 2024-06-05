@@ -1,0 +1,9 @@
+{
+  "pedals": [
+    {
+      "pin": "A0",
+      "cc_channel": 11,
+      "sensitivity": 2
+    }
+  ]
+}
