@@ -12,9 +12,9 @@ from adafruit_midi.control_change import ControlChange
 # list of expression pedals, list of elements of form (potentiometer_pin, cc_channel, sensitivity)
 EXPRESSION_PEDALS = [(board.A0, 11, 2)]
 # list of on/off switches, list of elements of form (switch_pin, cc_channel)
-SWITCHES = [(board.GP10, 81), (board.GP11, 82), (board.GP12, 83)]
+SWITCHES = [(board.GP11, 81), (board.GP12, 82), (board.GP13, 83)]
 # list of switches able to change their mode, list of elements of form (switch_pin, flipswitch_pin, cc_channel)
-MODE_SWITCHES = [(board.GP13, board.GP15, 80)] 
+MODE_SWITCHES = [(board.GP10, board.GP15, 80)]
 
 
 class FootSwitch:
@@ -29,14 +29,14 @@ class FootSwitch:
         pin_in.direction = digitalio.Direction.INPUT
         pin_in.pull = digitalio.Pull.UP
         self.switch = Debouncer(pin_in)
-        
+
         self.pressed = False
         self.midi_out = midi_out
         self.cc_channel = cc_channel
         self.update_rate = update_rate
         self.momentary = momentary
-      
-      
+
+
     async def monitor(self):
         """
         Loops while monitoring switch state
@@ -48,8 +48,8 @@ class FootSwitch:
                 await self.toggle_poll()
             else:
                 await self.momentary_poll()
-       
-       
+
+
     async def toggle_poll(self):
         """
         Behavior for toggle-type footswitch
@@ -62,7 +62,7 @@ class FootSwitch:
             cc_message = ControlChange(self.cc_channel, int(self.pressed) * 127)
             print(f'{cc_message} pedal status: {"on" if self.pressed else "off"}')
             self.midi_out.send(cc_message)
-            
+
     async def momentary_poll(self):
         """
         Behavior for momentary-type footswitch
@@ -73,34 +73,34 @@ class FootSwitch:
             cc_message = ControlChange(self.cc_channel, 127)
             print(f'{cc_message} pedal status: {"pressed"}')
             self.midi_out.send(cc_message)
-            
+
         if self.switch.rose:
             cc_message = ControlChange(self.cc_channel, 0)
             print(f'{cc_message} pedal status: {"rose"}')
             self.midi_out.send(cc_message)
-            
+
 
 class ModeChangeFootSwitch(FootSwitch):
     """
     FootSwitch that can be changed from momentary to toggle with a flip of another switch
     """
-    
+
     def __init__(self, pin, flip_pin, midi_out, cc_channel, update_rate=0, flip_update_rate=0.025, momentary=False):
         super().__init__(pin, midi_out, cc_channel, update_rate, momentary)
         self.flip_pin = digitalio.DigitalInOut(flip_pin)
         self.flip_pin.direction = digitalio.Direction.INPUT
         self.flip_pin.pull = digitalio.Pull.UP
         self.flip_update_rate = flip_update_rate
-        
+
     async def monitor(self):
         """
         Overrides parent method, includes monitoring of flip switch
         """
         footswitch_monitor_task = super().monitor()
         flipswitch_monitor_task = self.monitorFlipSwitch()
-        
+
         await asyncio.gather(footswitch_monitor_task, flipswitch_monitor_task)
-        
+
     async def monitorFlipSwitch(self):
         """
         Polls the flippable switch for changes
@@ -111,13 +111,13 @@ class ModeChangeFootSwitch(FootSwitch):
             if self.flip_pin.value != self.momentary:
                 print(f'switch flipped: {"momentary" if self.flip_pin.value else "toggle"}')
                 self.momentary = self.flip_pin.value
-                
-    
+
+
 class ExpressionPedal:
     """
     Encapsulation for expression pedal
     """
-    
+
     def __init__(self, potentiometer_pin, midi_out, cc_channel=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
         self.mod_pot = AnalogIn(potentiometer_pin)
         self.midi_out = midi_out
@@ -154,20 +154,20 @@ async def main():
     midi = adafruit_midi.MIDI(
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], out_channel=1
     )
-    
+
     tasks = []
     for pedal in EXPRESSION_PEDALS:
         exp_pedal = ExpressionPedal(pedal[0], midi, cc_channel=pedal[1], sensitivity=pedal[2])
         tasks.append(asyncio.create_task(exp_pedal.monitor()))
-    
+
     for switch in SWITCHES:
         foot_switch = FootSwitch(switch[0], midi, switch[1])
         tasks.append(asyncio.create_task(foot_switch.monitor()))
-    
+
     for mode_switch in MODE_SWITCHES:
         foot_switch = ModeChangeFootSwitch(mode_switch[0], mode_switch[1], midi, mode_switch[2])
         tasks.append(asyncio.create_task(foot_switch.monitor()))
-        
+
     await asyncio.gather(*tasks)
 
 asyncio.run(main())
