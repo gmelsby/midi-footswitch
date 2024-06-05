@@ -2,7 +2,7 @@
   "expression_pedals": [
     {
       "pin": "A0",
-      "cc_channel": 11,
+      "cc_parameter": 11,
       "sensitivity": 2
     }
   ],
@@ -11,19 +11,19 @@
     {
       "pin": "GP10",
       "flip_pin": "GP15",
-      "cc_channel": 80
+      "cc_parameter": 80
     },
     {
       "pin": "GP11",
-      "cc_channel": 81
+      "cc_parameter": 81
     },
     {
       "pin": "GP12",
-      "cc_channel": 82
+      "cc_parameter": 82
     },
     {
       "pin": "GP13",
-      "cc_channel": 83
+      "cc_parameter": 83
     }
   ]
 }

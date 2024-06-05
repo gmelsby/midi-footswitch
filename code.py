@@ -52,7 +52,7 @@ class FootSwitch:
     Keeps track of foot switch state and mode
     """
 
-    def __init__(self, midi_out, pin, cc_channel, update_rate=0, momentary=False):
+    def __init__(self, midi_out, pin, cc_parameter, update_rate=0, momentary=False):
         # switch setup
         pin_in = digitalio.DigitalInOut(pin)
         pin_in.direction = digitalio.Direction.INPUT
@@ -61,7 +61,7 @@ class FootSwitch:
 
         self.pressed = False
         self.midi_out = midi_out
-        self.cc_channel = cc_channel
+        self.cc_parameter = cc_parameter
         self.update_rate = update_rate
         self.momentary = momentary
 
@@ -69,7 +69,7 @@ class FootSwitch:
     async def monitor(self):
         """
         Loops while monitoring switch state
-        Sends changes to midi_out on cc_channel
+        Sends changes to midi_out on cc_parameter
         """
         while True:
             await asyncio.sleep(self.update_rate)
@@ -88,7 +88,7 @@ class FootSwitch:
         if self.switch.fell:
             self.pressed = not self.pressed
             # create CC message
-            cc_message = ControlChange(self.cc_channel, int(self.pressed) * 127)
+            cc_message = ControlChange(self.cc_parameter, int(self.pressed) * 127)
             print(f'{cc_message} pedal status: {"on" if self.pressed else "off"}')
             self.midi_out.send(cc_message)
 
@@ -99,12 +99,12 @@ class FootSwitch:
         """
         self.switch.update()
         if self.switch.fell:
-            cc_message = ControlChange(self.cc_channel, 127)
+            cc_message = ControlChange(self.cc_parameter, 127)
             print(f'{cc_message} pedal status: {"pressed"}')
             self.midi_out.send(cc_message)
 
         if self.switch.rose:
-            cc_message = ControlChange(self.cc_channel, 0)
+            cc_message = ControlChange(self.cc_parameter, 0)
             print(f'{cc_message} pedal status: {"rose"}')
             self.midi_out.send(cc_message)
 
@@ -114,8 +114,8 @@ class ModeChangeFootSwitch(FootSwitch):
     FootSwitch that can be changed from momentary to toggle with a flip of another switch
     """
 
-    def __init__(self, midi_out, pin, flip_pin, cc_channel, update_rate=0, flip_update_rate=0.025, momentary=False):
-        super().__init__(midi_out, pin, cc_channel, update_rate, momentary)
+    def __init__(self, midi_out, pin, flip_pin, cc_parameter, update_rate=0, flip_update_rate=0.025, momentary=False):
+        super().__init__(midi_out, pin, cc_parameter, update_rate, momentary)
         self.flip_pin = digitalio.DigitalInOut(flip_pin)
         self.flip_pin.direction = digitalio.Direction.INPUT
         self.flip_pin.pull = digitalio.Pull.UP
@@ -147,10 +147,10 @@ class ExpressionPedal:
     Encapsulation for expression pedal
     """
 
-    def __init__(self, midi_out, pin, cc_channel=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
+    def __init__(self, midi_out, pin, cc_parameter=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
         self.mod_pot = AnalogIn(pin)
         self.midi_out = midi_out
-        self.cc_channel = cc_channel
+        self.cc_parameter = cc_parameter
         self.last_value = 0
         self.update_rate = update_rate
         self.sensitivity = sensitivity
@@ -172,7 +172,7 @@ class ExpressionPedal:
             if abs(current_value - self.last_value) >= self.sensitivity or (current_value != self.last_value and current_value in (0, 127)):
                 self.last_value = current_value
                 # create CC message
-                modWheel = ControlChange(self.cc_channel, current_value)
+                modWheel = ControlChange(self.cc_parameter, current_value)
                 # send CC message
                 print(modWheel)
                 self.midi_out.send(modWheel)
