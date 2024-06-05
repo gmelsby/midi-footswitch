@@ -148,6 +148,7 @@ class ExpressionPedal:
     """
 
     def __init__(self, midi_out, pin, cc_parameter=11, update_rate=0.025, sensitivity=2, pot_min=400, pot_max=65535):
+        self.pin = pin
         self.mod_pot = AnalogIn(pin)
         self.midi_out = midi_out
         self.cc_parameter = cc_parameter
@@ -159,7 +160,7 @@ class ExpressionPedal:
 
     async def monitor(self):
         """
-        Polls the poteniometer at the rate specified by update_rate
+        Polls the potentiometer at the rate specified by update_rate
         Sends MIDI CC messages if change exceeds sensitivty
         """
         while True:
@@ -176,7 +177,19 @@ class ExpressionPedal:
                 # send CC message
                 print(modWheel)
                 self.midi_out.send(modWheel)
-
+    
+    def __str__(self):
+        """
+        Represents the Expression Pedal as a string
+        """
+        return '\n\t'.join([
+            f'{self.__class__.__name__}:',
+            f'pin: {self.pin}',
+            f'cc_parameter: {self.cc_parameter}',
+            f'update_rate: {self.update_rate}',
+            f'sensitivity: {self.sensitivity}',
+            f'pot_min: {self.pot_min}',
+            f'pot_max: {self.pot_max}'])
 
 async def main():
     config_file = open('config.json', mode='r')
@@ -188,7 +201,7 @@ async def main():
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1], 
         out_channel=config['midi_out_channel'] if 'midi_out_channel' in config else 1 
     )
-    print(f"MIDI channel: {midi.out_channel}")
+    print(f"MIDI channel: {midi.out_channel}\n")
 
     tasks = []
     # add specified expression pedals to tasks
@@ -196,6 +209,7 @@ async def main():
         for pedal in config['expression_pedals']:
             pedal['pin'] = PIN_DICT[pedal['pin']]
             exp_pedal = ExpressionPedal(midi, **pedal)
+            print(f'{exp_pedal}\n')
             tasks.append(asyncio.create_task(exp_pedal.monitor()))
 
     # add specified switches to tasks
@@ -208,6 +222,7 @@ async def main():
                 switch['flip_pin'] = PIN_DICT[switch['flip_pin']]
                 switch_class = ModeChangeFootSwitch
             foot_switch = switch_class(midi, **switch)
+            print(f'{foot_switch}\n')
             tasks.append(asyncio.create_task(foot_switch.monitor()))
 
     await asyncio.gather(*tasks)
