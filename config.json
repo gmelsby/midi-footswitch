@@ -1,6 +1,14 @@
 {
   "midi_out_channel": 1,
 
+  "expression_pedals": [
+    {
+      "pin": "A0",
+      "cc_parameter": 11,
+      "sensitivity": 2
+    }
+  ],
+
   "switches": [
     {
       "pin": "GP10",
