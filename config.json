@@ -1,31 +1,30 @@
 {
   "midi_out_channel": 1,
 
-  "expression_pedals": [
-    {
-      "pin": "A0",
-      "cc_parameter": 11,
-      "sensitivity": 2
-    }
-  ],
-
   "switches": [
     {
       "pin": "GP10",
-      "flip_pin": "GP15",
-      "cc_parameter": 80
+      "cc_parameter": 80,
+      "momentary": true
     },
     {
       "pin": "GP11",
-      "cc_parameter": 81
+      "cc_parameter": 81,
+      "momentary": true
     },
     {
       "pin": "GP12",
-      "cc_parameter": 82
+      "cc_parameter": 82,
+      "momentary": true
     },
     {
       "pin": "GP13",
-      "cc_parameter": 83
+      "cc_parameter": 83,
+      "momentary": true
     }
-  ]
+  ],
+
+  "mode_change_switch": {
+    "pin": "GP15"
+  }
 }
