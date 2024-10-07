@@ -9,6 +9,14 @@ from adafruit_debouncer import Button
 from analogio import AnalogIn
 from adafruit_midi.control_change import ControlChange
 
+# easy switch for console output only in debug mode
+DEBUG = True
+
+# replaces print so DEBUG toggles console output
+def log(s):
+    if DEBUG:
+        print(s)
+
 # enables specifying pins from a json string
 PIN_DICT = {
     'GP0': board.GP0,
@@ -99,7 +107,7 @@ class FootSwitch:
         else:
             self.momentary = True
 
-        print(f'Pedal {self.pin} switched to  {"momentary" if self.momentary else "toggle"} mode')
+        log(f'Pedal {self.pin} switched to  {"momentary" if self.momentary else "toggle"} mode')
 
     async def toggle_poll(self):
         """
@@ -111,7 +119,7 @@ class FootSwitch:
             self.pressed = not self.pressed
             # create CC message
             cc_message = ControlChange(self.cc_parameter, int(self.pressed) * 127)
-            print(f'{cc_message} pedal status: {"on" if self.pressed else "off"}')
+            log(f'{cc_message} pedal status: {"on" if self.pressed else "off"}')
             self.midi_out.send(cc_message)
 
     async def momentary_poll(self):
@@ -122,12 +130,12 @@ class FootSwitch:
         self.switch.update()
         if self.switch.pressed:
             cc_message = ControlChange(self.cc_parameter, 127)
-            print(f'{cc_message} pedal status: {"pressed"}')
+            log(f'{cc_message} pedal status: {"pressed"}')
             self.midi_out.send(cc_message)
 
         if self.switch.released:
             cc_message = ControlChange(self.cc_parameter, 0)
-            print(f'{cc_message} pedal status: {"released"}')
+            log(f'{cc_message} pedal status: {"released"}')
             self.midi_out.send(cc_message)
 
     def __str__(self):
@@ -165,7 +173,7 @@ class ModeChangeSwitch():
             await asyncio.sleep(self.update_rate)
             if self.pin.value != self.is_on:
                 self.is_on = self.pin.value
-                print(f'toggle switch flipped: {"on" if self.is_on else "off"}')
+                log(f'toggle switch flipped: {"on" if self.is_on else "off"}')
 
                 for foot_switch in self.foot_switches:
                     foot_switch.mode_change = self.is_on
@@ -215,7 +223,7 @@ class ExpressionPedal:
                 # create CC message
                 modWheel = ControlChange(self.cc_parameter, current_value)
                 # send CC message
-                print(modWheel)
+                log(modWheel)
                 self.midi_out.send(modWheel)
 
     def __str__(self):
@@ -241,7 +249,7 @@ async def main():
         midi_in=usb_midi.ports[0], in_channel=0, midi_out=usb_midi.ports[1],
         out_channel=config['midi_out_channel'] if 'midi_out_channel' in config else 1
     )
-    print(f"MIDI channel: {midi.out_channel}\n")
+    log(f"MIDI channel: {midi.out_channel}\n")
 
     tasks = []
     # add specified expression pedals to tasks
@@ -249,7 +257,7 @@ async def main():
         for pedal in config['expression_pedals']:
             pedal['pin'] = PIN_DICT[pedal['pin']]
             exp_pedal = ExpressionPedal(midi, **pedal)
-            print(f'{exp_pedal}\n')
+            log(f'{exp_pedal}\n')
             tasks.append(asyncio.create_task(exp_pedal.monitor()))
 
     # store FootSwitches in list to be passed into ModeChangeSwitch
@@ -260,7 +268,7 @@ async def main():
             switch['pin'] = PIN_DICT[switch['pin']]
             # default to standard foot switch, change to mode switch if flip_pin specified
             foot_switch = FootSwitch(midi, **switch)
-            print(f'{foot_switch}\n')
+            log(f'{foot_switch}\n')
             foot_switches.append(foot_switch)
             tasks.append(asyncio.create_task(foot_switch.monitor()))
 
@@ -268,7 +276,7 @@ async def main():
         mode_change_args = config['mode_change_switch']
         mode_change_args['pin'] = PIN_DICT[mode_change_args['pin']]
         mode_change_switch = ModeChangeSwitch(foot_switches, **mode_change_args)
-        print(f'{mode_change_switch}\n')
+        log(f'{mode_change_switch}\n')
         tasks.append(asyncio.create_task(mode_change_switch.monitor()))
 
     await asyncio.gather(*tasks)
