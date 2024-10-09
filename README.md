@@ -3,6 +3,10 @@ MIDI controller platform for RP2040 that handles tappable switches and expressio
 
 For use with [CircuitPython 9.0.5](https://github.com/adafruit/circuitpython/releases/tag/9.0.5)
 
+![pedal](/images/pedal.jpeg)
+![expression pedal gif](/images/gifs/Expression%20Pedal.gif)
+
+
 ## Setup
 ### Hardware
 The two main input devices supported by this software are expression pedals and tappable switches. Optionally, an additional flippable switch can be added which enables the tappable switches to change modes between 'toggle' and 'momentary'. 
@@ -15,10 +19,25 @@ This software is meant for use with **momentary switches** that are normally ope
 
 Software enables these momentary switches to behave, for the purposes of MIDI output, as latching switches if desired. The reverse behavior would not be possible, as behavior like long presses or short consecutive taps would not be registered on a latching switch.
 
+| ![Momentary example](/images/gifs/Momentary.gif) |
+|:--:| 
+| *Momentary Switch Behavior* |
+
+| ![Toggle example](/images/gifs/Toggle.gif) |
+|:--:| 
+| *Toogle/Latching Switch Behavior* |
+
+
+
 To connect these switches to the microcontroller, wire one pin to ground (`GND`) and the other to any pin labelled `GPx` (where x is an integer) on the [Pico Pinout Diagram](https://learn.adafruit.com/assets/99339). The `config.json` file provides some reasonable defaults for a four-footswitch setup (`GP10`, `GP11`, `GP12`, and `GP13`), but it can be modified to suit other hardware states.
 
 #### Optional Toggle Switch for Mode Change
 If desired, a toggle switch can be added that enables users to change the behavior of individual tappable switches while the toggle switch is in the 'ON' position. While the toggle switch circuit is complete, single-tapping a footswitch will place it in 'latching' or 'toggle' mode, and double-tapping a footswitch will place it in 'momentary' mode. These changes persist after the toggle switch is switched back to 'OFF'.
+
+| ![Mode change to momentary example](/images/gifs/Switch%20Modes%20To%20Momentary.gif) |
+|:--:| 
+| *Example of changing a footswitch to momentary mode by double tapping* |
+
 
 To connect a toggle switch to the microcontroller, wire one pin to ground and the other to to any pin labelled `GPx` (where x is an integer) on the [Pico Pinout Diagram](https://learn.adafruit.com/assets/99339). The default `config.json` pin for the toggle switch is `GP15`.
 
@@ -76,6 +95,11 @@ To enable/disable debugging print statements sent over serial, change the value 
 The holes on the enclosures found in the 'cases' folder accomodate four 1/2" bushing diameter foot switches, one panel mount 1/4" TRS socket with a 1/2" bushing diameter, and one 1/4" bushing diameter flippable toggle switch. The cutout for the Micro USB port is designed to accomodate [this panel mount extender](https://www.adafruit.com/product/3258).
 
 The laser-cuttable wooden enclosure is a [ClosedBox](https://boxes.hackerspace-bamberg.de/ClosedBox?language=en) from Boxes.py modified in Inkscape to add cutouts for hardware. It has been tested with 1/8" thickness Baltic Birch Plywood using a Universal Laser Systems VLS3.50.
+
+![laser cut wood](/images/laser_cut.jpeg)
+![pedal body](/images/body.jpeg)
+![pedal with hardware installed](/images/hardware.jpeg)
+![wired pedal](/images/wired.jpeg)
 
 The 3d-printable enclosure is a [Basic Box model](https://lightningboxes.com/product/basic-box/) from Lightning Boxes modified in TinkerCAD to add cutouts for hardware. It has not been tested.
 
